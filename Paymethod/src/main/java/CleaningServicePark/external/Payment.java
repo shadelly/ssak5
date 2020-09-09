@@ -7,6 +7,7 @@ public class Payment {
     private String status;
     private Long requestId;
     private String payKind;
+    private String payKindRegStatus;
 
     public Long getId() {
         return id;
@@ -38,5 +39,11 @@ public class Payment {
     public void setPayKind(String payKind) {
         this.payKind = payKind;
     }
+    public String getPayKindRegStatus() {
+        return payKindRegStatus;
+    }
 
+    public void setPayKindRegStatus(String payKindRegStatus) {
+        this.payKindRegStatus = payKindRegStatus;
+    }
 }

@@ -15,24 +15,37 @@ public class Payment {
     private String status;
     private Long requestId;
     private String payKind;
+    private String payKindRegStatus;
 
     @PostPersist
     public void onPostPersist(){
-        PayConfirmed payConfirmed = new PayConfirmed();
-        BeanUtils.copyProperties(this, payConfirmed);
-        payConfirmed.publishAfterCommit();
 
+        System.out.println("##### Payment onPostPersist : " + getStatus());
 
-        PayCancelConfirmed payCancelConfirmed = new PayCancelConfirmed();
-        BeanUtils.copyProperties(this, payCancelConfirmed);
-        payCancelConfirmed.publishAfterCommit();
+        if("PaymentApproved".equals(getStatus())) {
 
+            PayConfirmed payConfirmed = new PayConfirmed();
+            BeanUtils.copyProperties(this, payConfirmed);
+            payConfirmed.setRequestId(getRequestId());
+            payConfirmed.setStatus("PaymentCompleted");
+            payConfirmed.publishAfterCommit();
+        }
 
-        PayKindChangeConfirmed payKindChangeConfirmed = new PayKindChangeConfirmed();
-        BeanUtils.copyProperties(this, payKindChangeConfirmed);
-        payKindChangeConfirmed.publishAfterCommit();
+        else if("PaymentCancel".equals(getStatus())) {
+            PayCancelConfirmed payCancelConfirmed = new PayCancelConfirmed();
+            BeanUtils.copyProperties(this, payCancelConfirmed);
+            payCancelConfirmed.setRequestId(getRequestId());
+            payCancelConfirmed.setStatus("PaymentCancelCompleted");
+            payCancelConfirmed.publishAfterCommit();
+        }
 
-
+        else if("PaymentKindRegistered".equals(getPayKindRegStatus())){
+            PayKindChangeConfirmed payKindChangeConfirmed = new PayKindChangeConfirmed();
+            BeanUtils.copyProperties(this, payKindChangeConfirmed);
+            payKindChangeConfirmed.setRequestId(getRequestId());
+            payKindChangeConfirmed.setStatus("Payment kind change Completed");
+            payKindChangeConfirmed.publishAfterCommit();
+        }
     }
 
 
@@ -73,6 +86,13 @@ public class Payment {
     }
 
 
+    public String getPayKindRegStatus() {
+        return payKindRegStatus;
+    }
+
+    public void setPayKindRegStatus(String payKindRegStatus) {
+        this.payKindRegStatus = payKindRegStatus;
+    }
 
 
 }
