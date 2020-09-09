@@ -15,6 +15,7 @@ public class DashBoardView {
         private String place;
         private String status;
         private Integer price;
+        private String payKind;
 
 
         public Long getId() {
@@ -58,6 +59,13 @@ public class DashBoardView {
 
         public void setPrice(Integer price) {
             this.price = price;
+        }
+        public String getPayKind() {
+            return payKind;
+        }
+
+        public void setPayKind(String payKind) {
+            this.payKind = payKind;
         }
 
 }

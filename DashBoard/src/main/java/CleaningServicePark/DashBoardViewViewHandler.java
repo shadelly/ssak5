@@ -18,17 +18,15 @@ public class DashBoardViewViewHandler {
     private DashBoardViewRepository dashBoardViewRepository;
 
     @StreamListener(KafkaProcessor.INPUT)
-    public void whenCleaningRequested_then_CREATE_1 (@Payload CleaningRequested cleaningRequested) {
+    public void whenPayConfirmed_then_CREATE_1 (@Payload PayConfirmed payConfirmed) {
         try {
-            if (cleaningRequested.isMe()) {
+            if (payConfirmed.isMe()) {
                 // view 객체 생성
                 DashBoardView dashBoardView = new DashBoardView();
                 // view 객체에 이벤트의 Value 를 set 함
-                dashBoardView.setRequestId(cleaningRequested.getRequestId());
-                dashBoardView.setRequestDate(cleaningRequested.getRequestDate());
-                dashBoardView.setPlace(cleaningRequested.getPlace());
-                dashBoardView.setStatus(cleaningRequested.getStatus());
-                dashBoardView.setPrice(cleaningRequested.getPrice());
+                dashBoardView.setRequestId(payConfirmed.getRequestId());
+                dashBoardView.setPayKind(payConfirmed.getKind());
+                dashBoardView.setStatus(payConfirmed.getStatus());
                 // view 레파지 토리에 save
                 dashBoardViewRepository.save(dashBoardView);
             }
@@ -39,14 +37,14 @@ public class DashBoardViewViewHandler {
 
 
     @StreamListener(KafkaProcessor.INPUT)
-    public void whenPayConfirmed_then_UPDATE_1(@Payload PayConfirmed payConfirmed) {
+    public void whenPayCancelConfirmed_then_UPDATE_1(@Payload PayCancelConfirmed payCancelConfirmed) {
         try {
-            if (payConfirmed.isMe()) {
+            if (payCancelConfirmed.isMe()) {
                 // view 객체 조회
-                List<DashBoardView> dashBoardViewList = dashBoardViewRepository.findByRequestId(payConfirmed.getRequestId());
+                List<DashBoardView> dashBoardViewList = dashBoardViewRepository.findByRequestId(payCancelConfirmed.getRequestId());
                 for(DashBoardView dashBoardView : dashBoardViewList){
                     // view 객체에 이벤트의 eventDirectValue 를 set 함
-                    dashBoardView.setStatus(payConfirmed.getStatus());
+                    dashBoardView.setStatus(payCancelConfirmed.getStatus());
                     // view 레파지 토리에 save
                     dashBoardViewRepository.save(dashBoardView);
                 }
@@ -89,11 +87,47 @@ public class DashBoardViewViewHandler {
             e.printStackTrace();
         }
     }
+    @StreamListener(KafkaProcessor.INPUT)
+    public void whenKindRegistered_then_UPDATE_4(@Payload KindRegistered kindRegistered) {
+        try {
+            if (kindRegistered.isMe()) {
+                // view 객체 조회
+                List<DashBoardView> dashBoardViewList = dashBoardViewRepository.findByRequestId(kindRegistered.getRequestId());
+                for(DashBoardView dashBoardView : dashBoardViewList){
+                    // view 객체에 이벤트의 eventDirectValue 를 set 함
+                    dashBoardView.setPayKind(kindRegistered.getKind());
+                    // view 레파지 토리에 save
+                    dashBoardViewRepository.save(dashBoardView);
+                }
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+    @StreamListener(KafkaProcessor.INPUT)
+    public void whenKindChanged_then_UPDATE_5(@Payload KindChanged kindChanged) {
+        try {
+            if (kindChanged.isMe()) {
+                // view 객체 조회
+                List<DashBoardView> dashBoardViewList = dashBoardViewRepository.findByRequestId(kindChanged.getRequestId());
+                for(DashBoardView dashBoardView : dashBoardViewList){
+                    // view 객체에 이벤트의 eventDirectValue 를 set 함
+                    dashBoardView.setPayKind(kindChanged.getKind());
+                    // view 레파지 토리에 save
+                    dashBoardViewRepository.save(dashBoardView);
+                }
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
 
     @StreamListener(KafkaProcessor.INPUT)
-    public void whenCleanCanceled_then_DELETE_(@Payload CleanCanceled cleanCanceled) {
+    public void whenCleaningRequestCanceled_then_DELETE_1(@Payload CleaningRequestCanceled cleaningRequestCanceled) {
         try {
-            if (cleanCanceled.isMe()) {
+            if (cleaningRequestCanceled.isMe()) {
+                // view 레파지 토리에 삭제 쿼리
+                dashBoardViewRepository.deleteByRequestId(cleaningRequestCanceled.getRequestId());
             }
         }catch (Exception e){
             e.printStackTrace();

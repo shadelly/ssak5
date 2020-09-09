@@ -1,4 +1,3 @@
-
 package CleaningServicePark;
 
 public class PayCancelConfirmed extends AbstractEvent {

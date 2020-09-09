@@ -1,0 +1,13 @@
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\Message.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\KindChanged.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\PolicyHandler.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\MessageAlerted.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\MessageApplication.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\MessageController.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\config\kafka\KafkaProcessor.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\MessageRepository.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\PayConfirmed.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\PayCancelConfirmed.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\PayKindChangeConfirmed.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\CleaningConfirmed.java
+C:\azure\ssak5\Message\src\main\java\CleaningServicePark\AbstractEvent.java

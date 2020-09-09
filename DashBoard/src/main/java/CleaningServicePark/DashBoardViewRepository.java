@@ -10,5 +10,8 @@ public interface DashBoardViewRepository extends CrudRepository<DashBoardView, L
     List<DashBoardView> findByRequestId(Long requestId);
     List<DashBoardView> findByRequestId(Long requestId);
     List<DashBoardView> findByRequestId(Long requestId);
+    List<DashBoardView> findByRequestId(Long requestId);
+    List<DashBoardView> findByRequestId(Long requestId);
 
+        void deleteByRequestId(Long requestId);
 }

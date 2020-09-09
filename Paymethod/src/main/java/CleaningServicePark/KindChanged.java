@@ -1,4 +1,3 @@
-
 package CleaningServicePark;
 
 public class KindChanged extends AbstractEvent {
@@ -6,6 +5,8 @@ public class KindChanged extends AbstractEvent {
     private Long id;
     private Long requestID;
     private String kindRegStatus;
+    private String kind;
+    private Long number;
 
     public Long getId() {
         return id;
@@ -27,5 +28,19 @@ public class KindChanged extends AbstractEvent {
 
     public void setKindRegStatus(String kindRegStatus) {
         this.kindRegStatus = kindRegStatus;
+    }
+    public String getKind() {
+        return kind;
+    }
+
+    public void setKind(String kind) {
+        this.kind = kind;
+    }
+    public Long getNumber() {
+        return number;
+    }
+
+    public void setNumber(Long number) {
+        this.number = number;
     }
 }

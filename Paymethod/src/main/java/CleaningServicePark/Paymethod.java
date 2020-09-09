@@ -25,22 +25,32 @@ public class Paymethod {
         // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
 
         CleaningServicePark.external.Payment payment = new CleaningServicePark.external.Payment();
-        // mappings goes here
+        payment.setRequestId(getId());
+        payment.setPayKind(getKind());
+        payment.setStatus("Payment kind Registered");
         PaymethodApplication.applicationContext.getBean(CleaningServicePark.external.PaymentService.class)
             .payKindChange(payment);
 
 
+        try {
+            PaymethodApplication.applicationContext.getBean(CleaningServicePark.external.PaymentService.class)
+                    .payKindChange(payment);
+        } catch(Exception e) {
+            throw new RuntimeException("Registered failed. Check your payment kind.");
+        }
+
     }
 
-    @PrePersist
+    @PreUpdate
     public void onPrePersist(){
         KindChanged kindChanged = new KindChanged();
         BeanUtils.copyProperties(this, kindChanged);
+        kindChanged.setRequestId(getId());
+        kindChanged.setKind(getKind());
         kindChanged.publishAfterCommit();
 
 
     }
-
 
     public Long getId() {
         return id;

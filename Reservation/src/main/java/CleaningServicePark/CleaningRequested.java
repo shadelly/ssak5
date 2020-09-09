@@ -3,11 +3,15 @@ package CleaningServicePark;
 public class CleaningRequested extends AbstractEvent {
 
     private Long id;
-    private Long requestID;
+    private Long requestId;
     private String requestDate;
     private String place;
     private String status;
     private Integer price;
+
+    public CleaningRequested(){
+        super();
+    }
 
     public Long getId() {
         return id;
@@ -17,11 +21,11 @@ public class CleaningRequested extends AbstractEvent {
         this.id = id;
     }
     public Long getRequestId() {
-        return requestID;
+        return requestId;
     }
 
-    public void setRequestId(Long requestID) {
-        this.requestID = requestID;
+    public void setRequestId(Long requestId) {
+        this.requestId = requestId;
     }
     public String getRequestDate() {
         return requestDate;
