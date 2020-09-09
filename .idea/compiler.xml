@@ -33,6 +33,7 @@
       <module name="Payment" options="-parameters" />
       <module name="Paymethod" options="-parameters" />
       <module name="Reservation" options="-parameters" />
+      <module name="boot-camp-gateway" options="-parameters" />
     </option>
   </component>
 </project>
