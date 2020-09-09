@@ -14,29 +14,20 @@ public class Paymethod {
     private String kind;
     private Long number;
     private Long requestId;
+    private String payKindRegStatus;
 
     @PostPersist
     public void onPostPersist(){
-        KindRegistered kindRegistered = new KindRegistered();
-        BeanUtils.copyProperties(this, kindRegistered);
-        kindRegistered.publishAfterCommit();
-
-        //Following code causes dependency to external APIs
-        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
-
         CleaningServicePark.external.Payment payment = new CleaningServicePark.external.Payment();
         payment.setRequestId(getId());
         payment.setPayKind(getKind());
-        payment.setStatus("Payment kind Registered");
-        PaymethodApplication.applicationContext.getBean(CleaningServicePark.external.PaymentService.class)
-            .payKindChange(payment);
-
+        payment.setPayKindRegStatus("PaymentKindRegistered");
 
         try {
             PaymethodApplication.applicationContext.getBean(CleaningServicePark.external.PaymentService.class)
                     .payKindChange(payment);
         } catch(Exception e) {
-            throw new RuntimeException("Registered failed. Check your payment kind.");
+            throw new RuntimeException("PaymentKindRegister failed. Check your payment Service.");
         }
 
     }
@@ -47,9 +38,8 @@ public class Paymethod {
         BeanUtils.copyProperties(this, kindChanged);
         kindChanged.setRequestId(getId());
         kindChanged.setKind(getKind());
+        kindChanged.setKindRegStatus(getPayKindRegStatus());
         kindChanged.publishAfterCommit();
-
-
     }
 
     public Long getId() {
@@ -81,7 +71,13 @@ public class Paymethod {
         this.requestId = requestId;
     }
 
+    public String getPayKindRegStatus() {
+        return payKindRegStatus;
+    }
 
+    public void setPayKindRegStatus(String payKindRegStatus) {
+        this.payKindRegStatus = payKindRegStatus;
+    }
 
 
 }
