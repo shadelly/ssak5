@@ -11,7 +11,7 @@ import java.util.Date;
 @FeignClient(name="Payment", url="${api.url.payment}")
 public interface PaymentService {
 
-    @RequestMapping(method= RequestMethod.PATCH, path="/payments")
+    @RequestMapping(method= RequestMethod.POST, path="/payments")
     public void payKindChange(@RequestBody Payment payment);
 
 }
