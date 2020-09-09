@@ -286,12 +286,12 @@ cd ssak5/gateway
 mvn package
 ```
 
-- for azure cli
+- for azure cli docker 이미지파일 이미지파일 빌드해서 push
 ```console
-docker build -t ssak5acr.azurecr.io/gateway .
+docker build -t ssak5acr.azurecr.io/gateway:1.0 .
 docker images
-docker push ssak5acr.azurecr.io/gateway
-```
+docker push ssak5acr.azurecr.io/gateway:1.0
+
 
 ## application deploy
 ```console
@@ -341,40 +341,52 @@ import org.springframework.beans.BeanUtils;
 import java.util.List;
 
 @Entity
-@Table(name="Payment_table")
-public class Payment {
+@Table(name="Paymethod_table")
+public class Paymethod {
 
     @Id
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
+    private String kind;
+    private Long number;
     private Long requestId;
-    private Integer price;
-    private String status;
 
     @PostPersist
     public void onPostPersist(){
+        KindRegistered kindRegistered = new KindRegistered();
+        BeanUtils.copyProperties(this, kindRegistered);
+        kindRegistered.publishAfterCommit();
 
-    	System.out.println("##### Payment onPostPersist : " + getStatus());
+        //Following code causes dependency to external APIs
+        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
 
-    	if("PaymentApproved".equals(getStatus())) {
+        CleaningServicePark.external.Payment payment = new CleaningServicePark.external.Payment();
+        payment.setRequestId(getId());
+        payment.setPayKind(getKind());
+        payment.setStatus("Payment kind Registered");
+        PaymethodApplication.applicationContext.getBean(CleaningServicePark.external.PaymentService.class)
+            .payKindChange(payment);
 
-        	PayConfirmed payConfirmed = new PayConfirmed();
-            BeanUtils.copyProperties(this, payConfirmed);
-            payConfirmed.setRequestId(getRequestId());
-            payConfirmed.setStatus("PaymentCompleted");
-            payConfirmed.publishAfterCommit();
-        }
 
-        else if("PaymentCancel".equals(getStatus())) {
-        	PayCancelConfirmed payCancelConfirmed = new PayCancelConfirmed();
-            BeanUtils.copyProperties(this, payCancelConfirmed);
-            payCancelConfirmed.setRequestId(getRequestId());
-            payCancelConfirmed.setStatus("PaymentCancelCompleted");
-            payCancelConfirmed.publishAfterCommit();
+        try {
+            PaymethodApplication.applicationContext.getBean(CleaningServicePark.external.PaymentService.class)
+                    .payKindChange(payment);
+        } catch(Exception e) {
+            throw new RuntimeException("Registered failed. Check your payment kind.");
         }
 
     }
 
+    @PreUpdate
+    public void onPrePersist(){
+        KindChanged kindChanged = new KindChanged();
+        BeanUtils.copyProperties(this, kindChanged);
+        kindChanged.setRequestId(getId());
+        kindChanged.setKind(getKind());
+        kindChanged.publishAfterCommit();
+
+
+    }
 
     public Long getId() {
         return id;
@@ -383,6 +395,20 @@ public class Payment {
     public void setId(Long id) {
         this.id = id;
     }
+    public String getKind() {
+        return kind;
+    }
+
+    public void setKind(String kind) {
+        this.kind = kind;
+    }
+    public Long getNumber() {
+        return number;
+    }
+
+    public void setNumber(Long number) {
+        this.number = number;
+    }
     public Long getRequestId() {
         return requestId;
     }
@@ -390,30 +416,17 @@ public class Payment {
     public void setRequestId(Long requestId) {
         this.requestId = requestId;
     }
-    public Integer getPrice() {
-        return price;
-    }
 
-    public void setPrice(Integer price) {
-        this.price = price;
-    }
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
 }
-
 ```
 - Entity Pattern 과 Repository Pattern 을 적용하여 JPA 를 통하여 다양한 데이터소스 유형 (RDB or NoSQL) 에 대한 별도의 처리가 없도록 데이터 접근 어댑터를 자동 생성하기 위하여 Spring Data REST 의 RestRepository 를 적용하였다
 ```java
-package CleaningServiceYD;
+
+package CleaningServicePark;
 
 import org.springframework.data.repository.PagingAndSortingRepository;
 
-public interface PaymentRepository extends PagingAndSortingRepository<Payment, Long>{
+public interface PaymethodRepository extends PagingAndSortingRepository<Paymethod, Long>{
 
 
 }
@@ -422,31 +435,31 @@ public interface PaymentRepository extends PagingAndSortingRepository<Payment, L
 - API Gateway 적용
 ```console
 # gateway service type 변경
-$ kubectl edit service/gateway -n ssak3
+$ kubectl edit service/gateway -n ssak5
 (ClusterIP -> LoadBalancer)
 
-root@ssak3-vm:~/ssak3/Payment# kubectl get service -n ssak3
+root@ssak5-vm:~/ssak5# kubectl get service -n ssak5
 NAME          TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)          AGE
-cleaning      ClusterIP      10.0.150.114   <none>         8080/TCP         11h
-dashboard     ClusterIP      10.0.69.44     <none>         8080/TCP         11h
-gateway       LoadBalancer   10.0.56.218    20.196.72.75   8080:32642/TCP   9h
-message       ClusterIP      10.0.255.90    <none>         8080/TCP         8h
-payment       ClusterIP      10.0.64.167    <none>         8080/TCP         8h
-reservation   ClusterIP      10.0.23.111    <none>         8080/TCP         11h
+cleaning      ClusterIP      10.0.55.227    <none>         8080/TCP         30m
+dashboard     ClusterIP      10.0.108.26    <none>         8080/TCP         30m
+gateway       LoadBalancer   10.0.55.192    20.39.188.50   8080:32750/TCP   31m
+message       ClusterIP      10.0.23.249    <none>         8080/TCP         30m
+payment       ClusterIP      10.0.213.242   <none>         8080/TCP         30m
+paymethod     ClusterIP      10.0.234.6     <none>         8080/TCP         30m
+reservation   ClusterIP      10.0.126.188   <none>         8080/TCP         30m
 ```
 - API Gateway 적용 확인
 ```console
-//예약
-http POST http://20.196.72.75:8080/cleaningReservations requestDate=20200907 place=seoul status=ReservationApply price=2000 customerName=yeon
-// 청소
-http POST http://20.196.72.75:8080/cleans status=CleaningStarted requestId=1 cleanDate=20200909
-// 예약취소
-http DELETE http://20.196.72.75:8080/cleaningReservations/1
+//결제수단등록
+http POST http://20.39.188.50:8080/cleaningReservations requestDate=20200907 place=seoul status=ReservationApply price=2000 customerName=yeon
+http POST http://20.39.188.50:8080/paymethods kind=credit number=40095003 requestId=1
+//결제수단변경 
+http Patch http://20.39.188.50:8080/paymethods kind=bank number=13212 requestId=1
 ```
 
 - siege 접속
 ```console
-kubectl exec -it siege -n cleaning -- /bin/bash
+kubectl exec -it siege -n paymethods -- /bin/bash
 ```
 
 - kiali 접속 : http://20.41.120.4:20001/
@@ -454,17 +467,15 @@ kubectl exec -it siege -n cleaning -- /bin/bash
 
 - (siege 에서) 적용 후 REST API 테스트 
 ```
-# 청소 서비스 예약요청 처리
-http POST http://reservation:8080/cleaningReservations requestDate=20200907 place=seoul status=ReservationApply price=2000 customerName=yeon
+# 결제수단 등록
+http POST http://payment:8080/paymethods requestDate=20200907 place=seoul status=ReservationApply price=2000 customerName=yeon
 
-# 예약 상태 확인
-http http://reservation:8080/reservations/1
+# 결제수단 확인
+http http://payment:8080/paymethods/1
 
-# 예약취소 
-http DELETE http://reservation:8080/cleaningReservations/1
+# 결제수단 변경
+http PATCH http://payment:8080/paymethods/1
 
-# 청소 결과 등록
-http POST http://cleaning:8080/cleans status=CleaningStarted requestId=1 cleanDate=20200909
 ```
 
 
@@ -489,20 +500,18 @@ public interface PaymentService {
 
 }
 ```
-- 예약을 받은 직후(@PostPersist) 결제가 완료되도록 처리
+- 결제수단 등록을 한 직후(@PostPersist) 결제가 완료되도록 처리
 ```java
 @Entity
-@Table(name="CleaningReservation_table")
-public class CleaningReservation {
+@Table(name="Paymethod_table")
+public class Paymethod {
 
     @Id
     @GeneratedValue(strategy=GenerationType.AUTO)
     private Long id;
-    private String requestDate;
-    private String place;
-    private String status;
-    private Integer price;
-    private String customerName;
+    private String kind;
+    private Long number;
+    private Long requestId;
 
     @PostPersist
     public void onPostPersist(){
@@ -523,7 +532,7 @@ public class CleaningReservation {
 }
 ```
 
-- 호출 시간에 따른 타임 커플링이 발생하며, 결제 시스템이 장애가 나면 주문도 못받는다는 것을 확인
+- 호출 시간에 따른 타임 커플링이 발생하며, 결제 시스템이 장애가 나면 결제시스템 등록도 되지않음을 확인
 ```
 # 결제 서비스를 잠시 내려놓음
 $ kubectl delete -f payment.yaml
@@ -536,11 +545,11 @@ message-69597f6864-mhwx7       2/2     Running   0          137m
 reservation-775fc6574d-kddgd   2/2     Running   0          144m
 siege                          2/2     Running   0          3h39m
 
-# 예약처리 (siege 에서)
+# 결제수단등록 (siege 에서)
 http POST http://reservation:8080/cleaningReservations requestDate=20200907 place=seoul status=ReservationApply price=250000 customerName=chae #Fail
 http POST http://reservation:8080/cleaningReservations requestDate=20200909 place=pangyo status=ReservationApply price=300000 customerName=noh #Fail
 
-# 예약처리 시 에러 내용
+# 결제수단등록 시 에러 내용
 HTTP/1.1 500 Internal Server Error
 content-type: application/json;charset=UTF-8
 date: Tue, 08 Sep 2020 15:51:34 GMT
@@ -589,7 +598,7 @@ reservation-775fc6574d-kddgd   2/2     Running   0          153m
 siege                          2/2     Running   0          3h48m
 
 
-# 예약처리 (siege 에서)
+# 결제수단등록 (siege 에서)
 http POST http://reservation:8080/cleaningReservations requestDate=20200907 place=seoul status=ReservationApply price=250000 customerName=chae #Success
 http POST http://reservation:8080/cleaningReservations requestDate=20200909 place=pangyo status=ReservationApply price=300000 customerName=noh #Success
 
@@ -717,7 +726,7 @@ public class PolicyHandler{
 
 }
 ```
-- 실제 구현을 하자면, 카톡 등으로 알림을 처리함
+- 실제 구현 알림을 처리함
 ```
 @Service
 public class PolicyHandler{
@@ -744,7 +753,7 @@ public class PolicyHandler{
 # 알림 서비스를 잠시 내려놓음
 kubectl delete -f message.yaml
 
-# 예약처리 (siege 에서)
+# 결제수단등록 (siege 에서)
 http POST http://reservation:8080/cleaningReservations requestDate=20200907 place=seoul status=ReservationApply price=250000 customerName=chae #Success
 http POST http://reservation:8080/cleaningReservations requestDate=20200909 place=pangyo status=ReservationApply price=300000 customerName=noh #Success
 
