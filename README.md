@@ -21,13 +21,13 @@
 # 서비스 시나리오
   
 ## 기능적 요구사항
-1. 고객이 결제수단을 등록을 요청하면 결제수단이 등록된다(Sync, 결제서비스)
+1. 고객이 결제수단을 등록을 요청하면 결제가 된다(Sync, 결제서비스)
 2. 결제수단이 등록되면 고객에게 등록되었다고 전달한다 (Async, 알림서비스)
 3. 결제수단이 변경되면, 고객에게 변경되었다고 전달한다 (Async, 알림서비스)
 
 ## 비기능적 요구사항
 ### 1. 트랜잭션
-- 결제수단이 등록되지 않은 예약건은 아예 거래가 성립되지 않아야 한다 → Sync 호출 
+- 결제수단이 등록되지 않으면 아예 거래가 성립되지 않아야 한다 → Sync 호출 
 ### 2. 장애격리
 - 통지(알림) 기능이 수행되지 않더라도 결제수단 등록은 365일 24시간 받을 수 있어야 한다 - Async (event-driven), Eventual Consistency
 - 결제등록시스템이 과중되면 사용자를 잠시동안 받지 않고 결제등록을 잠시후에 하도록 유도한다 → Circuit breaker, fallback
@@ -37,10 +37,10 @@
 
 # 분석/설계
 
-결제수단 등록 및 변경 시 Saga패턴(예약 Req/Resp, 취소 Pub/Sub)을 적용하여 구현되도록 설계함
+결제수단 등록 및 변경 시 Saga패턴(결제 Req/Resp, 알람 Pub/Sub)을 적용하여 구현되도록 설계함
 
 ## Event Storming 결과
-* MSAEz 로 모델링한 이벤트스토밍 결과 : http://www.msaez.io/#/storming/k1eXHY4YSrSFKU3UpQTDRHUvSS23/every/f5d0809e09167fd49a1a95acfc9dd0d2/-MGcF3GTrAc5KsEkYr8b
+* MSAEz 로 모델링한 이벤트스토밍 결과 : http://www.msaez.io/#/storming/kAaGLLxk6oYy26rn6IPUmOaRG7s1/mine/98bb844fd65bd62f1029968815bfe4ed/-MGlUNkYlc_LficPIJrz
 
 ## 도메인 서열 분리 
   - Core Domain: 예약 
@@ -52,7 +52,7 @@
  
 ### 시나리오 검증
   ![14](https://user-images.githubusercontent.com/69634194/92385712-4de74780-f14d-11ea-8c83-a548b0736f28.png)
-1. 고객이 결제수단을 등록을 요청하면 결제수단이 등록된다(Sync, 결제서비스)
+1. 고객이 결제수단을 등록을 요청하면 결제가 된다(Sync, 결제서비스)
 2. 결제수단이 등록되면 고객에게 등록되었다고 전달한다 (Async, 알림서비스)
 
   ![15](https://user-images.githubusercontent.com/69634194/92385714-4e7fde00-f14d-11ea-9c34-053742fa9d76.png)
@@ -61,13 +61,13 @@
 
 ### 비기능 요구사항 검증
   ![17](https://user-images.githubusercontent.com/69634194/92387512-a409ba00-f150-11ea-994c-68282cbc2856.png)
-결제수단이 등록되지 않은 예약건은 아예 거래가 성립되지 않아야 한다 → Sync 호출 
-1. 예약에 대해서는 결제수단이 등록되어야만 예약 처리하고 장애격리를 위해 CB를 설치함 (트랜잭션 > 1, 장애격리 > 2)
-2. 결제수단 관련 이벤트를 마이페이지에서 수신하여 View Table 을 구성 (CQRS) (성능 > 1)
+1. 결제수단이 등록되지 않으면 아예 거래가 성립되지 않아야 한다 → Sync 호출 
+- 결제에 대해서는 결제수단이 등록되어야만 결제처리하고 장애격리를 위해 CB를 설치함 (트랜잭션 > 1, 장애격리 > 2)
+- 결제수단 관련 이벤트를 마이페이지에서 수신하여 View Table 을 구성 (CQRS) (성능 > 1)
 
 * 마이크로 서비스를 넘나드는 시나리오에 대한 트랜잭션 처리
     - 결제수단 등록시 결제처리
-      - 결제수단이 등록되지 않은 예약은 절대 받지 않는다에 따라, ACID 트랜잭션 적용. 예약 완료시 결제처리에 대해서는 Request-Response 방식 처리
+      - 결제수단이 등록되지 않은 결제은 절대 처리되지 않는다에 따라, ACID 트랜잭션 적용. 결제수단 등록시 결제처리에 대해서는 Request-Response 방식 처리
     - 결제수단 등록시 알림 처리
       - 결제수단에서 알림 마이크로서비스로 예약 완료 내용을 전달되는 과정에 있어서 알림 마이크로서비스가 별도의 배포주기를 가지기 때문에 Eventual Consistency 방식으로 트랜잭션 처리함.
     
@@ -290,7 +290,7 @@ mvn package
 ```console
 docker build -t ssak5acr.azurecr.io/gateway:1.0 .
 docker images
-docker push ssak5acr.azurecr.io/gateway:1.0
+docker push ssak5acr.azurecr.io/paymethod:1.0
 
 
 ## application deploy
@@ -452,7 +452,7 @@ reservation   ClusterIP      10.0.126.188   <none>         8080/TCP         30m
 ```console
 //결제수단등록
 http POST http://20.39.188.50:8080/cleaningReservations requestDate=20200907 place=seoul status=ReservationApply price=2000 customerName=yeon
-http POST http://20.39.188.50:8080/paymethods kind=credit number=40095003 requestId=1
+http POST http://20.39.188.50:8080/paymethods kind=credit number=40095003 requestId=1 payKindRegStatus=PaymentKindRegistered
 //결제수단변경 
 http Patch http://20.39.188.50:8080/paymethods kind=bank number=13212 requestId=1
 ```
