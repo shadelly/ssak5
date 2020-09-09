@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: paymethod
-          image: ssak5acr.azurecr.io/paymethod:1.0
+          image: ssak5acr.azurecr.io/paymethod:1.1
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
