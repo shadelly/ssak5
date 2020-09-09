@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: paymethod
+  name: reservation
   namespace: ssak5
   labels:
-    app: paymethod
+    app: reservation
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: paymethod
+      app: reservation
   template:
     metadata:
       labels:
-        app: paymethod
+        app: reservation
     spec:
       containers:
-        - name: paymethod
-          image: ssak5acr.azurecr.io/paymethod:1.0
+        - name: reservation
+          image: ssak5acr.azurecr.io/reservation:1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -49,13 +49,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: paymethod
+  name: reservation
   namespace: ssak5
   labels:
-    app: paymethod
+    app: reservation
 spec:
   ports:
     - port: 8080
       targetPort: 8080
   selector:
-    app: paymethod
+    app: reservation

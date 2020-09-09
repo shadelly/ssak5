@@ -1,32 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: paymethod
+  name: cleaning
   namespace: ssak5
   labels:
-    app: paymethod
+    app: cleaning
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: paymethod
+      app: cleaning
   template:
     metadata:
       labels:
-        app: paymethod
+        app: cleaning
     spec:
       containers:
-        - name: paymethod
-          image: ssak5acr.azurecr.io/paymethod:1.0
+        - name: cleaning
+          image: ssak5acr.azurecr.io/cleaning:1.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
-          env:
-            - name: api.url.payment
-              valueFrom:
-                configMapKeyRef:
-                  name: ssak5-config
-                  key: api.url.payment
           readinessProbe:
             httpGet:
               path: '/actuator/health'
@@ -49,13 +43,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: paymethod
+  name: cleaning
   namespace: ssak5
   labels:
-    app: paymethod
+    app: cleaning
 spec:
   ports:
     - port: 8080
       targetPort: 8080
   selector:
-    app: paymethod
+    app: cleaning
