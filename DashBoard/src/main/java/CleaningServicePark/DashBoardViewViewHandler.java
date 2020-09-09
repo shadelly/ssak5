@@ -25,7 +25,7 @@ public class DashBoardViewViewHandler {
                 DashBoardView dashBoardView = new DashBoardView();
                 // view 객체에 이벤트의 Value 를 set 함
                 dashBoardView.setRequestId(payConfirmed.getRequestId());
-                dashBoardView.setPayKind(payConfirmed.getKind());
+                dashBoardView.setPayKind(payConfirmed.getPayKind());
                 dashBoardView.setStatus(payConfirmed.getStatus());
                 // view 레파지 토리에 save
                 dashBoardViewRepository.save(dashBoardView);
