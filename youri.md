@@ -275,6 +275,9 @@ public class DashBoardViewViewHandler {
 }
 ```
 #3.CORERELATION
+```
+gateway 사용
+```
 #4.REQ/RESP
 분석단계에서의 조건 중 하나로 예약->결제 간의 호출은 동기식 일관성을 유지하는 트랜잭션으로 처리하기로 하였다. 호출 프로토콜은 이미 앞서 Rest Repository 에 의해 노출되어있는 REST 서비스를 FeignClient 를 이용하여 호출하도록 한다. 
 

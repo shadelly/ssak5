@@ -8,6 +8,7 @@ public class PayKindChangeConfirmed extends AbstractEvent {
     private String status;
     private Long requestID;
     private String payKind;
+    private String kindRegStatus;
 
     public Long getId() {
         return id;
@@ -43,5 +44,12 @@ public class PayKindChangeConfirmed extends AbstractEvent {
 
     public void setPayKind(String payKind) {
         this.payKind = payKind;
+    }
+    public String getKindRegStatus() {
+        return kindRegStatus;
+    }
+
+    public void setKindRegStatus(String kindRegStatus) {
+        this.kindRegStatus = kindRegStatus;
     }
 }

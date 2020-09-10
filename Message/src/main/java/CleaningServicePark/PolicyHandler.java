@@ -66,6 +66,7 @@ public class PolicyHandler{
 
             message.setRequestId(kindChanged.getRequestId());
             message.setPayKind(kindChanged.getKind());
+            message.setKindRegStatus(kindChanged.getKindRegStatus());
 
             messageRepository.save(message);
             System.out.println("##### listener MessageAlert : " + kindChanged.toJson());
@@ -79,6 +80,7 @@ public class PolicyHandler{
 
             message.setRequestId(payKindChangeConfirmed.getRequestId());
             message.setPayKind(payKindChangeConfirmed.getPayKind());
+            message.setKindRegStatus(payKindChangeConfirmed.getKindRegStatus());
 
             messageRepository.save(message);
             System.out.println("##### listener MessageAlert : " + payKindChangeConfirmed.toJson());

@@ -15,6 +15,7 @@ public class Message {
     private Long requestId;
     private String status;
     private String payKind;
+    private String kindRegStatus;
 
     @PostPersist
     public void onPostPersist(){
@@ -61,6 +62,13 @@ public class Message {
 
     public void setPayKind(String payKind) {
         this.payKind = payKind;
+    }
+    public String getKindRegStatus() {
+        return kindRegStatus;
+    }
+
+    public void setKindRegStatus(String kindRegStatus) {
+        this.kindRegStatus = kindRegStatus;
     }
 
 

@@ -566,7 +566,7 @@ x-envoy-upstream-service-time: 87
 }
 
 # 결제서비스 재기동전에 아래의 비동기식 호출 기능 점검 테스트 수행 (siege 에서)
-http DELETE http://reservation:8080/reservations/1 #Success
+http PATCH http://reservation:8080/reservations/1 #Success
 
 # 결과
 root@siege:/# http DELETE http://reservation:8080/reservations/1
@@ -726,7 +726,7 @@ public class PolicyHandler{
 
 }
 ```
-- 실제 구현 알림을 처리함
+- 실제 알림 처리
 ```
 @Service
 public class PolicyHandler{

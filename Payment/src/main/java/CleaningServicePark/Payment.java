@@ -43,7 +43,7 @@ public class Payment {
             PayKindChangeConfirmed payKindChangeConfirmed = new PayKindChangeConfirmed();
             BeanUtils.copyProperties(this, payKindChangeConfirmed);
             payKindChangeConfirmed.setRequestId(getRequestId());
-            payKindChangeConfirmed.setStatus("Payment kind change Completed");
+            payKindChangeConfirmed.setPayKindRegStatus("Payment kind change Completed");
             payKindChangeConfirmed.publishAfterCommit();
         }
     }
