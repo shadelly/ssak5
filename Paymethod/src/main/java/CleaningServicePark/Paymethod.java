@@ -38,7 +38,8 @@ public class Paymethod {
         BeanUtils.copyProperties(this, kindChanged);
         kindChanged.setRequestId(getId());
         kindChanged.setKind(getKind());
-        kindChanged.setKindRegStatus(getPayKindRegStatus());
+        kindChanged.setNumber(getNumber());
+        kindChanged.setKindRegStatus("PaymentKindRegistered");
         kindChanged.publishAfterCommit();
     }
 
