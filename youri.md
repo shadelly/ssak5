@@ -628,7 +628,7 @@ Shortest transaction:           0.01
 ```console
 kubectl delete horizontalpodautoscaler.autoscaling/paymethod -n ssak5
 ```
-- yaml 설정 참고
+- paymethod.yaml 설정 참고
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
