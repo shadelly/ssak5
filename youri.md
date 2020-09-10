@@ -515,6 +515,7 @@ Shortest transaction:           0.04
 ```
 - DestinationRule 적용되어 서킷 브레이킹 동작 확인 (kiali 화면)
 ![image](https://user-images.githubusercontent.com/68408649/92671670-d2a2b300-f351-11ea-91d4-26fde368fa02.png)
+![image](https://user-images.githubusercontent.com/68408649/92672293-54471080-f353-11ea-9f48-34769b21d1f9.png)
 
 #8.AUTOSCALE(HPA)
 * (istio injection 적용한 경우) istio injection 적용 해제
