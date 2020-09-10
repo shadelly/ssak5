@@ -1,225 +1,19 @@
 #1.SAGA
-- 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
-결제수단이 변경된 후에 알림 처리는 동기식이 아니라 비 동기식으로 처리하여 알림 시스템의 처리를 위하여 결제수단 등록이 블로킹 되지 않도록 처리
-```java
-
-@Entity
-@Table(name="Paymethod_table")
-public class Paymethod {
-
-    @Id
-    @GeneratedValue(strategy=GenerationType.AUTO)
-    private Long id;
-    private String kind;
-    private Long number;
-    private Long requestId;
-    private String payKindRegStatus;
-
-    @PostPersist
-    public void onPostPersist(){
-        CleaningServicePark.external.Payment payment = new CleaningServicePark.external.Payment();
-        payment.setRequestId(getId());
-        payment.setPayKind(getKind());
-        payment.setPayKindRegStatus("PaymentKindRegistered");
-
-        try {
-            PaymethodApplication.applicationContext.getBean(CleaningServicePark.external.PaymentService.class)
-                    .payKindChange(payment);
-        } catch(Exception e) {
-            throw new RuntimeException("PaymentKindRegister failed. Check your payment Service.");
-        }
-
-    }
-
-    @PreUpdate
-    public void onPrePersist(){
-        KindChanged kindChanged = new KindChanged();
-        BeanUtils.copyProperties(this, kindChanged);
-        kindChanged.setRequestId(getId());
-        kindChanged.setKind(getKind());
-        kindChanged.setKindRegStatus(getPayKindRegStatus());
-        kindChanged.publishAfterCommit();
-    }
-}
-```
-```java
-@Entity
-@Table(name="Payment_table")
-public class Payment {
-
-    @Id
-        @GeneratedValue(strategy=GenerationType.AUTO)
-        private Long id;
-        private Long payId;
-        private String status;
-        private Long requestId;
-        private String payKind;
-        private String payKindRegStatus;
-    
-        @PostPersist
-        public void onPostPersist(){
-    
-            System.out.println("##### Payment onPostPersist : " + getStatus());
-    
-            if("PaymentApproved".equals(getStatus())) {
-    
-                PayConfirmed payConfirmed = new PayConfirmed();
-                BeanUtils.copyProperties(this, payConfirmed);
-                payConfirmed.setRequestId(getRequestId());
-                payConfirmed.setStatus("PaymentCompleted");
-                payConfirmed.publishAfterCommit();
-            }
-    
-            else if("PaymentCancel".equals(getStatus())) {
-                PayCancelConfirmed payCancelConfirmed = new PayCancelConfirmed();
-                BeanUtils.copyProperties(this, payCancelConfirmed);
-                payCancelConfirmed.setRequestId(getRequestId());
-                payCancelConfirmed.setStatus("PaymentCancelCompleted");
-                payCancelConfirmed.publishAfterCommit();
-            }
-    
-            else if("PaymentKindRegistered".equals(getPayKindRegStatus())){
-                PayKindChangeConfirmed payKindChangeConfirmed = new PayKindChangeConfirmed();
-                BeanUtils.copyProperties(this, payKindChangeConfirmed);
-                payKindChangeConfirmed.setRequestId(getRequestId());
-                payKindChangeConfirmed.setStatus("Payment kind change Completed");
-                payKindChangeConfirmed.publishAfterCommit();
-            }
-        }
-    //...
-}
-```
-- 알림 서비스에서는 결제승인, 결제취소 이벤트에 대해서 이를 수신하여 자신의 정책을 처리하도록 PolicyHandler 를 구현한다
-```java
-@Service
-public class PolicyHandler{
-
-	@Autowired
-    private MessageRepository messageRepository;
-
-    @StreamListener(KafkaProcessor.INPUT)
-    public void wheneverPayConfirmed_MessageAlert(@Payload PayConfirmed payConfirmed){
-
-        if(payConfirmed.isMe()){
-        	Message message = new Message();
-
-        	message.setRequestId(payConfirmed.getRequestId());
-        	message.setStatus(payConfirmed.getStatus());
-
-        	messageRepository.save(message);
-
-            System.out.println("##### listener MessageAlert : " + payConfirmed.toJson());
-        }
-    }
-    @StreamListener(KafkaProcessor.INPUT)
-    public void wheneverCleaningConfirmed_MessageAlert(@Payload CleaningConfirmed cleaningConfirmed){
-
-        if(cleaningConfirmed.isMe()){
-        	Message message = new Message();
-
-        	message.setRequestId(cleaningConfirmed.getRequestId());
-        	message.setStatus(cleaningConfirmed.getStatus());
-
-        	messageRepository.save(message);
-
-            System.out.println("##### listener MessageAlert : " + cleaningConfirmed.toJson());
-        }
-    }
-    @StreamListener(KafkaProcessor.INPUT)
-    public void wheneverPayCancelConfirmed_MessageAlert(@Payload PayCancelConfirmed payCancelConfirmed){
-
-        if(payCancelConfirmed.isMe()){
-        	Message message = new Message();
-
-        	message.setRequestId(payCancelConfirmed.getRequestId());
-        	message.setStatus(payCancelConfirmed.getStatus());
-
-        	messageRepository.save(message);
-
-            System.out.println("##### listener MessageAlert : " + payCancelConfirmed.toJson());
-        }
-    }
-    @StreamListener(KafkaProcessor.INPUT)
-    public void wheneverKindChanged_MessageAlert(@Payload KindChanged kindChanged){
-
-        if(kindChanged.isMe()){
-            Message message = new Message();
-
-            message.setRequestId(kindChanged.getRequestId());
-            message.setPayKind(kindChanged.getKind());
-            message.setKindRegStatus(kindChanged.getKindRegStatus());
-
-            messageRepository.save(message);
-            System.out.println("##### listener MessageAlert : " + kindChanged.toJson());
-        }
-    }
-    @StreamListener(KafkaProcessor.INPUT)
-    public void wheneverPayKindChangeConfirmed_MessageAlert(@Payload PayKindChangeConfirmed payKindChangeConfirmed){
-
-        if(payKindChangeConfirmed.isMe()){
-            Message message = new Message();
-
-            message.setRequestId(payKindChangeConfirmed.getRequestId());
-            message.setPayKind(payKindChangeConfirmed.getPayKind());
-            message.setKindRegStatus(payKindChangeConfirmed.getKindRegStatus());
-
-            messageRepository.save(message);
-            System.out.println("##### listener MessageAlert : " + payKindChangeConfirmed.toJson());
-        }
-    }
-
-
-}
-```
-- 실제 알림 처리
-```
-@Service
-public class PolicyHandler{
-
-    @Autowired
-    private MessageRepository messageRepository;
-
-    @StreamListener(KafkaProcessor.INPUT)
-        public void wheneverPayKindChangeConfirmed_MessageAlert(@Payload PayKindChangeConfirmed payKindChangeConfirmed){
-    
-            if(payKindChangeConfirmed.isMe()){
-                Message message = new Message();
-    
-                message.setRequestId(payKindChangeConfirmed.getRequestId());
-                message.setPayKind(payKindChangeConfirmed.getPayKind());
-                message.setKindRegStatus(payKindChangeConfirmed.getKindRegStatus());
-    
-                messageRepository.save(message);
-                System.out.println("##### listener MessageAlert : " + payKindChangeConfirmed.toJson());
-            }
-        }
- ```
-* 알림 시스템은 결제수단관리와 완전히 분리되어있으며, 이벤트 수신에 따라 처리되기 때문에, 알림 시스템이 유지보수로 인해 잠시 내려간 상태라도 결제수단을 등록하는데 문제가 없다
+- 결제수단을 등록하면 결제가 완료되었다는 메시지를 알림 서비스에 알림이력으로 등록하고 Dashboard에서 결제수단을 보여준다.
+* 결제수단 등록
+``` console
+http POST http://paymethod:8080/paymethods kind=credit number=40095003 requestId=1 payKindRegStatus=PaymentKindRegistered
 
 ```
-# 알림 서비스를 잠시 내려놓음
-kubectl delete -f message.yaml
-
-# 결제수단등록 (siege 에서)
-http POST http://paymethod:8080/paymethods kind=credit number=40095003 requestId=1 payKindRegStatus=PaymentKindRegistered #Fail
-
-# 알림이력 확인 (siege 에서)
-http http://message:8080/messages # 알림이력조회 불가
-
-http: error: ConnectionError: HTTPConnectionPool(host='message', port=8080): Max retries exceeded with url: /messages (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fae6595deb8>: Failed to establish a new connection: [Errno -2] Name or service not known')) while doing GET request to URL: http://message:8080/messages
-
-# 알림 서비스 기동
-kubectl apply -f message.yaml
-
-# 알림이력 확인 (siege 에서)
-http http://message:8080/messages # 알림이력조회
-
+* Message 확인
+```
+root@siege:/# http GET http://message:8080/messages
 HTTP/1.1 200 OK
 content-type: application/hal+json;charset=UTF-8
-date: Wed, 09 Sep 2020 16:22:52 GMT
+date: Thu, 10 Sep 2020 02:58:15 GMT
 server: envoy
 transfer-encoding: chunked
-x-envoy-upstream-service-time: 439
+x-envoy-upstream-service-time: 26
 
 {
     "_embedded": {
@@ -232,28 +26,45 @@ x-envoy-upstream-service-time: 439
                     "self": {
                         "href": "http://message:8080/messages/1"
                     }
-                },
-                "requestId": 6,
-                "status": "PaymentKindRegistered"
+                }
             }
-        ]
-    },
-    "_links": {
-        "profile": {
-            "href": "http://message:8080/profile/messages"
-        },
-        "self": {
-            "href": "http://message:8080/messages{?page,size,sort}",
-            "templated": true
-        }
-    },
-    "page": {
-        "number": 0,
-        "size": 20,
-        "totalElements": 1,
-        "totalPages": 1
+        } 
     }
 }
+```
+* Dashboard에서 확인
+```console
+root@siege:/# http GET http://dashboard:8080/dashBoardViews
+   HTTP/1.1 200 OK
+   content-type: application/hal+json;charset=UTF-8
+   date: Thu, 10 Sep 2020 02:52:50 GMT
+   server: envoy
+   transfer-encoding: chunked
+   x-envoy-upstream-service-time: 131
+   
+   {
+       "_embedded": {
+           "dashBoardViews": [
+               {
+                   "_links": {
+                       "dashBoardView": {
+                           "href": "http://dashboard:8080/dashBoardViews/1"
+                       },
+                       "self": {
+                           "href": "http://dashboard:8080/dashBoardViews/1"
+                       }
+                   },
+                   "payKind": "credit",
+                   "place": null,
+                   "price": null,
+                   "requestDate": null,
+                   "requestId": null,
+                   "status": "ReservationApply"
+               }
+            }
+        }
+    
+   }
 ```
 #2.CQRS
 ```java
@@ -315,13 +126,104 @@ public class DashBoardViewViewHandler {
 }
 ```
 #3.CORERELATION
-```
 gateway 사용
+```yaml
+
+server:
+  port: 8088
+
+---
+
+spring:
+  profiles: default
+  cloud:
+    gateway:
+      routes:
+        - id: Reservation
+          uri: http://localhost:8081
+          predicates:
+            - Path=/cleaningReservations/** 
+        - id: Cleaning
+          uri: http://localhost:8082
+          predicates:
+            - Path=/cleans/** 
+        - id: Payment
+          uri: http://localhost:8083
+          predicates:
+            - Path=/payments/** 
+        - id: DashBoard
+          uri: http://localhost:8084
+          predicates:
+            - Path= /dashBoardViews/**
+        - id: Message
+          uri: http://localhost:8085
+          predicates:
+            - Path=/messages/** 
+        - id: Paymethod
+          uri: http://localhost:8086
+          predicates:
+            - Path=/paymethods/** 
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "*"
+            allowedMethods:
+              - "*"
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+
+
+---
+
+spring:
+  profiles: docker
+  cloud:
+    gateway:
+      routes:
+        - id: Reservation
+          uri: http://Reservation:8080
+          predicates:
+            - Path=/cleaningReservations/** 
+        - id: Cleaning
+          uri: http://Cleaning:8080
+          predicates:
+            - Path=/cleans/** 
+        - id: Payment
+          uri: http://Payment:8080
+          predicates:
+            - Path=/payments/** 
+        - id: DashBoard
+          uri: http://DashBoard:8080
+          predicates:
+            - Path= /dashBoardViews/**
+        - id: Message
+          uri: http://Message:8080
+          predicates:
+            - Path=/messages/** 
+        - id: Paymethod
+          uri: http://Paymethod:8080
+          predicates:
+            - Path=/paymethods/** 
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "*"
+            allowedMethods:
+              - "*"
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+
+server:
+  port: 8080
+
 ```
 #4.REQ/RESP
-분석단계에서의 조건 중 하나로 예약->결제 간의 호출은 동기식 일관성을 유지하는 트랜잭션으로 처리하기로 하였다. 호출 프로토콜은 이미 앞서 Rest Repository 에 의해 노출되어있는 REST 서비스를 FeignClient 를 이용하여 호출하도록 한다. 
 
-- 결제 서비스를 호출하기 위하여 Stub과 (FeignClient) 를 이용하여 Service 대행 인터페이스 (Proxy) 를 구현 
+- 결제수단 관리에서 결제 서비스를 호출하기 위하여 FeignClient를 이용하여 Service 대행 인터페이스 (Proxy) 를 구현 
 ```java
 @FeignClient(name="Payment", url="${api.url.payment}")
 public interface PaymentService {
