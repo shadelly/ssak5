@@ -1,7 +1,47 @@
 #1.SAGA
 - 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
 결제수단이 변경된 후에 알림 처리는 동기식이 아니라 비 동기식으로 처리하여 알림 시스템의 처리를 위하여 결제수단 등록이 블로킹 되지 않도록 처리
+```java
 
+@Entity
+@Table(name="Paymethod_table")
+public class Paymethod {
+
+    @Id
+    @GeneratedValue(strategy=GenerationType.AUTO)
+    private Long id;
+    private String kind;
+    private Long number;
+    private Long requestId;
+    private String payKindRegStatus;
+
+    @PostPersist
+    public void onPostPersist(){
+        CleaningServicePark.external.Payment payment = new CleaningServicePark.external.Payment();
+        payment.setRequestId(getId());
+        payment.setPayKind(getKind());
+        payment.setPayKindRegStatus("PaymentKindRegistered");
+
+        try {
+            PaymethodApplication.applicationContext.getBean(CleaningServicePark.external.PaymentService.class)
+                    .payKindChange(payment);
+        } catch(Exception e) {
+            throw new RuntimeException("PaymentKindRegister failed. Check your payment Service.");
+        }
+
+    }
+
+    @PreUpdate
+    public void onPrePersist(){
+        KindChanged kindChanged = new KindChanged();
+        BeanUtils.copyProperties(this, kindChanged);
+        kindChanged.setRequestId(getId());
+        kindChanged.setKind(getKind());
+        kindChanged.setKindRegStatus(getPayKindRegStatus());
+        kindChanged.publishAfterCommit();
+    }
+}
+```
 ```java
 @Entity
 @Table(name="Payment_table")
@@ -453,69 +493,79 @@ kubectl label namespace ssak5 istio-injection=enabled
 
 * 부하테스터 siege 툴을 통한 서킷 브레이커 동작 확인:
 - 동시사용자 100명
-- 30초 동안 실시
+- 60초 동안 실시
 ```console
-siege -v -c100 -t30S -r10 --content-type "application/json" 'http://paymethod:8080/paymethods POST {"kind": "credit","number": 40095003,"requestId": 1,"payKindRegStatus": "PaymentKindRegistered"}'
+siege -v -c100 -t60S -r10 --content-type "application/json" 'http://paymethod:8080/paymethods POST {"kind": "credit","number": 40095003,"requestId": 1,"payKindRegStatus": "PaymentKindRegistered"}'
 
-HTTP/1.1 201     1.20 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     1.12 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     0.14 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     1.11 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     1.21 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     1.20 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     1.20 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     1.11 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     1.21 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
-HTTP/1.1 201     0.12 secs:     341 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.91 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.82 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.92 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.12 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.87 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     3.67 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.06 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.87 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.09 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.80 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     1.48 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.89 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.12 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.12 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.11 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 201     0.03 secs:     291 bytes ==> POST http://paymethod:8080/paymethods
 
 Lifting the server siege...
-Transactions:                   2817 hits
+Transactions:                   6551 hits
 Availability:                 100.00 %
-Elapsed time:                  29.11 secs
-Data transferred:               1.53 MB
-Response time:                  1.23 secs
-Transaction rate:              79.79 trans/sec
+Elapsed time:                  59.21 secs
+Data transferred:               1.82 MB
+Response time:                  0.89 secs
+Transaction rate:             110.64 trans/sec
 Throughput:                     0.03 MB/sec
-Concurrency:                   97.95
-Successful transactions:        2817
+Concurrency:                   98.65
+Successful transactions:        6551
 Failed transactions:               0
-Longest transaction:            7.29
-Shortest transaction:           0.05
+Longest transaction:            4.20
+Shortest transaction:           0.02
+
 ```
+* kiali에서 확인
+![image](https://user-images.githubusercontent.com/68408649/92673004-08956680-f355-11ea-8b12-3dd837f5949a.png)
+
 * 서킷 브레이킹을 위한 DestinationRule 적용
 ```
 cd ssak5/yaml
 kubectl apply -f payment_dr.yaml
 
 # destinationrule.networking.istio.io/dr-payment created
+# 다시 부하테스트 수행
 
-HTTP/1.1 500     0.68 secs:     262 bytes ==> POST http://paymethod:8080/paymethod
-HTTP/1.1 500     0.70 secs:     262 bytes ==> POST http://paymethod:8080/paymethod
-HTTP/1.1 500     0.71 secs:     262 bytes ==> POST http://paymethod:8080/paymethod
-HTTP/1.1 500     0.72 secs:     262 bytes ==> POST http://paymethod:8080/paymethod
-HTTP/1.1 500     0.92 secs:     262 bytes ==> POST http://paymethod:8080/paymethod
-HTTP/1.1 500     0.68 secs:     262 bytes ==> POST http://paymethod:8080/paymethod
-HTTP/1.1 500     0.82 secs:     262 bytes ==> POST http://paymethod:8080/paymethod
-HTTP/1.1 500     0.71 secs:     262 bytes ==> POST http://paymethod:8080/paymethod
+HTTP/1.1 500     0.49 secs:     252 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 500     0.90 secs:     252 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 500     0.78 secs:     252 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 500     0.91 secs:     252 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 500     0.82 secs:     252 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 500     0.78 secs:     252 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 500     0.78 secs:     252 bytes ==> POST http://paymethod:8080/paymethods
+HTTP/1.1 500     0.59 secs:     252 bytes ==> POST http://paymethod:8080/paymethods
 siege aborted due to excessive socket failure; you
 can change the failure threshold in $HOME/.siegerc
 
-Transactions:                     20 hits
-Availability:                   1.75 %
-Elapsed time:                   9.92 secs
-Data transferred:               0.29 MB
-Response time:                 48.04 secs
-Transaction rate:               2.02 trans/sec
+Transactions:                    376 hits
+Availability:                  25.08 %
+Elapsed time:                  12.14 secs
+Data transferred:               0.37 MB
+Response time:                  3.17 secs
+Transaction rate:              30.97 trans/sec
 Throughput:                     0.03 MB/sec
-Concurrency:                   96.85
-Successful transactions:          20
+Concurrency:                   98.24
+Successful transactions:         376
 Failed transactions:            1123
-Longest transaction:            2.53
-Shortest transaction:           0.04
+Longest transaction:            4.38
+Shortest transaction:           0.02
 ```
 - DestinationRule 적용되어 서킷 브레이킹 동작 확인 (kiali 화면)
-![image](https://user-images.githubusercontent.com/68408649/92671670-d2a2b300-f351-11ea-91d4-26fde368fa02.png)
-![image](https://user-images.githubusercontent.com/68408649/92672293-54471080-f353-11ea-9f48-34769b21d1f9.png)
+![image](https://user-images.githubusercontent.com/68408649/92673438-0f70a900-f356-11ea-9a75-66989605e292.png)
 
 #8.AUTOSCALE(HPA)
 * (istio injection 적용한 경우) istio injection 적용 해제
@@ -543,60 +593,63 @@ kubectl autoscale deploy paymethod -n ssak5 --min=1 --max=3 --cpu-percent=15
 
 # horizontalpodautoscaler.autoscaling/paymethod autoscaled
 
-root@ssak5-vm:~/ssak5/yaml# kubectl get all -n ssak5
+admin5@ssak5-vm:~/ssak5$ kubectl get all -n ssak5
 NAME                               READY   STATUS    RESTARTS   AGE
-pod/cleaning-bf474f568-vxl8r       2/2     Running   0          3h5m
-pod/dashboard-7f7768bb5-7l8wr      2/2     Running   0          3h3m
-pod/gateway-6dfcbbc84f-rwnsh       2/2     Running   0          85m
-pod/message-69597f6864-fjs69       2/2     Running   0          34m
-pod/payment-7749f7dc7c-kfjxb       2/2     Running   0          39m
-pod/paymethod-646dcb9ffb-llrzk     2/2     Running   0          60m
-pod/reservation-775fc6574d-kddgd   2/2     Running   0          3h12m
-pod/siege                          2/2     Running   0          4h27m
+pod/cleaning-745f4b7566-lrn6w      2/2     Running   0          14h
+pod/dashboard-5c68d447f5-kjdpk     2/2     Running   0          14h
+pod/gateway-5489b49b67-zgw98       2/2     Running   0          39m
+pod/message-5975967f78-dccfq       2/2     Running   0          39m
+pod/payment-6dbbfc7cf5-r9jb4       2/2     Running   0          39m
+pod/paymethod-646dcb9ffb-llrzk     2/2     Running   0          10h
+pod/reservation-79596c74b8-c2djj   2/2     Running   0          38m
+pod/siege                          2/2     Running   0          13h
 
-NAME                  TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)          AGE
-service/cleaning      ClusterIP      10.0.150.114   <none>         8080/TCP         3h5m
-service/dashboard     ClusterIP      10.0.69.44     <none>         8080/TCP         3h3m
-service/gateway       LoadBalancer   10.0.56.218    20.39.188.50   8080:32750/TCP   31m
-service/message       ClusterIP      10.0.255.90    <none>         8080/TCP         34m
-service/payment       ClusterIP      10.0.64.167    <none>         8080/TCP         39m
-service/paymethod     ClusterIP      10.0.234.6     <none>         8080/TCP         30m
-service/reservation   ClusterIP      10.0.23.111    <none>         8080/TCP         3h12m
-
+NAME                  TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
+service/cleaning      ClusterIP   10.0.55.227    <none>        8080/TCP   14h
+service/dashboard     ClusterIP   10.0.108.26    <none>        8080/TCP   14h
+service/gateway       ClusterIP   10.0.248.84    <none>        8080/TCP   39m
+service/message       ClusterIP   10.0.114.150   <none>        8080/TCP   39m
+service/payment       ClusterIP   10.0.219.35    <none>        8080/TCP   39m
+service/paymethod     ClusterIP   10.0.234.6     <none>        8080/TCP   14h
+service/reservation   ClusterIP   10.0.233.100   <none>        8080/TCP   38m
 
 NAME                          READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/cleaning      1/1     1            1           3h5m
-deployment.apps/dashboard     1/1     1            1           3h3m
-deployment.apps/gateway       1/1     1            1           85m
-deployment.apps/message       1/1     1            1           34m
+deployment.apps/cleaning      1/1     1            1           14h
+deployment.apps/dashboard     1/1     1            1           14h
+deployment.apps/gateway       1/1     1            1           39m
+deployment.apps/message       1/1     1            1           39m
 deployment.apps/payment       1/1     1            1           39m
-deployment.apps/paymethod     1/1     1            1           4h44m
-deployment.apps/reservation   1/1     1            1           3h12m
+deployment.apps/paymethod     1/1     1            1           14h
+deployment.apps/reservation   1/1     1            1           38m
 
 NAME                                     DESIRED   CURRENT   READY   AGE
-replicaset.apps/cleaning-bf474f568       1         1         1       3h5m
-replicaset.apps/dashboard-7f7768bb5      1         1         1       3h3m
-replicaset.apps/gateway-6dfcbbc84f       1         1         1       85m
-replicaset.apps/message-69597f6864       1         1         1       34m
-replicaset.apps/payment-7749f7dc7c       1         1         1       39m
-replicaset.apps/paymethod-797b9b6f66     1         1         1       4h44m
-replicaset.apps/reservation-775fc6574d   1         1         1       3h12m
+replicaset.apps/cleaning-745f4b7566      1         1         1       14h
+replicaset.apps/cleaning-8884cb4f4       0         0         0       14h
+replicaset.apps/dashboard-5c68d447f5     1         1         1       14h
+replicaset.apps/dashboard-768c6c58bc     0         0         0       14h
+replicaset.apps/gateway-5489b49b67       1         1         1       39m
+replicaset.apps/message-5975967f78       1         1         1       39m
+replicaset.apps/payment-6dbbfc7cf5       1         1         1       39m
+replicaset.apps/paymethod-646dcb9ffb     1         1         1       10h
+replicaset.apps/paymethod-6db58f6bb7     0         0         0       14h
+replicaset.apps/paymethod-797b9b6f66     0         0         0       14h
+replicaset.apps/reservation-79596c74b8   1         1         1       38m
 
-NAME                                          REFERENCE            TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
-horizontalpodautoscaler.autoscaling/payment   Deployment/paymethod   3%/15%    1         3         1          55s
+NAME                                            REFERENCE              TARGETS         MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/paymethod   Deployment/paymethod   <unknown>/15%   1         3         1          27s
 ```
 
 - CB 에서 했던 방식대로 워크로드를 1분 동안 걸어준다.
 ```console
-siege -v -c100 -t60S -r10 --content-type "application/json" 'http://paymethod:8080/paymethods POST {"kind": "credit","number": 40095003,"requestId": 1,"payKindRegStatus": "PaymentKindRegistered"}'
+siege -v -c100 -t180S -r10 --content-type "application/json" 'http://paymethod:8080/paymethods POST {"kind": "credit","number": 40095003,"requestId": 1,"payKindRegStatus": "PaymentKindRegistered"}'
 ```
 
 - 오토스케일이 어떻게 되고 있는지 모니터링을 걸어둔다
 ```console
 kubectl get deploy paymethod -n ssak5 -w 
 
-NAME      READY   UP-TO-DATE   AVAILABLE   AGE
-paymethod   1/1     1            1           43m
+NAME      READY   UP-TO-DATE   AVAILABLE     AGE
+paymethod   1/1     1            1           14h
 
 # siege 부하 적용 후
 root@ssak5-vm:/# kubectl get deploy paymethod -n ssak5 -w
