@@ -126,7 +126,7 @@ public class DashBoardViewViewHandler {
 }
 ```
 #3.CORERELATION
-gateway 사용
+-gateway 사용
 ```yaml
 
 server:
